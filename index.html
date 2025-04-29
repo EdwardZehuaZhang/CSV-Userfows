@@ -375,9 +375,63 @@
                 document.documentElement.classList.add('dark');
             }
         });
+
+        // PDF.js variables
+        let pdfDoc = null;
+        let pageNum = 1;
+        let pageRendering = false;
+        let pageNumPending = null;
+        let scale = 1.0;
+        let currentPdfPath = '';
+        const ctx = pdfCanvas.getContext('2d');
+        
+        // Process URL parameters
+        function processURLParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const folderParam = urlParams.get('folder');
+            const hash = window.location.hash;
+            
+            console.log('Processing URL params:', { folder: folderParam, hash });
+            
+            if (folderParam) {
+                // Show the folder
+                showFolder(folderParam, false); // Don't update URL, we're already there
+                
+                // Check for PDF in hash
+                if (hash && hash.startsWith('#pdf=')) {
+                    try {
+                        const hashParts = hash.substring(5).split('&');
+                        let pdfPath = hashParts[0];
+                        let page = 1;
+                        
+                        // Check for page parameter
+                        for (let i = 1; i < hashParts.length; i++) {
+                            if (hashParts[i].startsWith('page=')) {
+                                page = parseInt(hashParts[i].substring(5), 10) || 1;
+                            }
+                        }
+                        
+                        // Make sure path is valid
+                        if (!pdfPath.includes('/')) {
+                            pdfPath = folderParam + '/' + pdfPath;
+                        }
+                        
+                        // Ensure path starts with ./
+                        if (!pdfPath.startsWith('./')) {
+                            pdfPath = './' + pdfPath;
+                        }
+                        
+                        console.log('Loading PDF from URL:', pdfPath, 'Page:', page);
+                        loadPDF(pdfPath, page);
+                    } catch (e) {
+                        console.error('Error processing hash parameters:', e);
+                    }
+                }
+            }
+        }
         
         // Folder navigation
-        function showFolder(folderName) {
+        function showFolder(folderName, updateURL = true) {
             // Hide folder selection, show PDF selection
             folderSelection.classList.add('hidden');
             pdfSelection.classList.remove('hidden');
@@ -396,8 +450,10 @@
                 emptyFolderMessage.classList.remove('hidden');
             }
             
-            // Update URL with folder
-            history.pushState({}, '', `?folder=${folderName}`);
+            // Update URL with folder if needed
+            if (updateURL) {
+                history.pushState({}, '', `?folder=${folderName}`);
+            }
         }
         
         // Back to folders
@@ -411,150 +467,125 @@
             history.pushState({}, '', window.location.pathname);
         }
 
-        // PDF.js variables
-        let pdfDoc = null;
-        let pageNum = 1;
-        let pageRendering = false;
-        let pageNumPending = null;
-        let scale = 1.0;
-        const ctx = pdfCanvas.getContext('2d');
-        
-        // Check URL parameters on load
-        window.addEventListener('DOMContentLoaded', () => {
-            const urlParams = new URLSearchParams(window.location.search);
-            const folderParam = urlParams.get('folder');
-            const fileParam = urlParams.get('file');
-            const pageParam = urlParams.get('page');
-            
-            if (folderParam) {
-                showFolder(folderParam);
-                
-                if (fileParam) {
-                    loadPDF(fileParam);
-                    if (pageParam) {
-                        const pageNumber = parseInt(pageParam, 10);
-                        if (!isNaN(pageNumber) && pageNumber > 0) {
-                            pageNum = pageNumber;
-                        }
-                    }
-                }
-            }
-            
-            // Handle hash change for deep linking
-            window.addEventListener('hashchange', handleHashChange);
-            handleHashChange();
-        });
-        
-        function handleHashChange() {
-            const hash = window.location.hash;
-            if (hash.startsWith('#pdf=')) {
-                const params = hash.substring(5).split('&');
-                const file = params[0];
-                let page = 1;
-                
-                for (let i = 1; i < params.length; i++) {
-                    if (params[i].startsWith('page=')) {
-                        page = parseInt(params[i].substring(5), 10);
-                    }
-                }
-                
-                loadPDF(file);
-                if (!isNaN(page) && page > 0) {
-                    pageNum = page;
-                }
-            }
-        }
-        
-        // Update URL with current PDF and page
-        function updateURL(file, page) {
-            const cleanFile = file.replace(/^Senate_Digitization\//, '');
-            window.location.hash = `pdf=${cleanFile}&page=${page}`;
-        }
-        
         // Load PDF function
-        function loadPDF(pdfPath) {
+        function loadPDF(pdfPath, targetPage = 1) {
+            // Store the current PDF path
+            currentPdfPath = pdfPath;
+            
             // Show loading indicator
             loadingIndicator.classList.remove('hidden');
-            console.log('DEBUG: Starting PDF load:', pdfPath);
+            console.log('Loading PDF:', pdfPath, 'Page:', targetPage);
             
             // Hide selection and error, show viewer
             pdfSelection.classList.add('hidden');
             pdfError.classList.add('hidden');
             pdfViewer.classList.remove('hidden');
             
-            // Reset zoom and page number
+            // Reset zoom
             scale = 1.0;
-            pageNum = 1;
             
             // Reset canvas to clean state
             ctx.clearRect(0, 0, pdfCanvas.width, pdfCanvas.height);
             
-            // For local files, create a proper URL
+            // Parse the PDF path to create a proper URL
             const pdfUrl = new URL(pdfPath, window.location.href).href;
-            console.log('DEBUG: Resolved PDF URL:', pdfUrl);
+            console.log('Resolved PDF URL:', pdfUrl);
             
-            // Create a loading task with more options for better reliability
+            // Get the folder from the path
+            let folder = 'Senate_Digitization'; // Default folder
+            const urlParams = new URLSearchParams(window.location.search);
+            const urlFolder = urlParams.get('folder');
+            if (urlFolder) {
+                folder = urlFolder;
+            }
+            
+            // Create a loading task
             const loadingTask = pdfjsLib.getDocument({
                 url: pdfUrl,
                 withCredentials: false,
                 cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.4.120/cmaps/',
-                cMapPacked: true,
-                disableRange: false,
-                disableStream: false,
-                disableAutoFetch: false
+                cMapPacked: true
             });
             
-            // Track when operation is canceled to prevent errors from canceled tasks
+            // Track when operation is canceled
             let canceled = false;
             
-            // Set timeout to handle cases where the PDF might be too large or connection issues
+            // Set timeout for loading
             const timeoutId = setTimeout(() => {
-                console.log('DEBUG: PDF load timeout - canceling task');
+                console.error('PDF load timeout');
                 canceled = true;
                 loadingTask.destroy().catch(() => {});
                 showError();
-            }, 30000); // 30 second timeout
+            }, 15000); // 15 second timeout
             
-            // Load the PDF with error handling
+            // Load the PDF
             loadingTask.promise
                 .then(function(pdf) {
                     if (canceled) return;
                     clearTimeout(timeoutId);
                     
-                    console.log('DEBUG: PDF loaded successfully, pages:', pdf.numPages);
+                    console.log('PDF loaded successfully, pages:', pdf.numPages);
                     pdfDoc = pdf;
                     totalPagesElement.textContent = pdf.numPages;
                     pageInput.max = pdf.numPages;
                     
-                    // Enable/disable navigation buttons
+                    // Ensure valid page number
+                    pageNum = Math.min(Math.max(1, targetPage), pdf.numPages);
+                    
+                    // Update navigation buttons
                     updateUIState();
                     
-                    // Render first page with added error handling
-                    return renderPage(pageNum).catch(err => {
-                        console.error('DEBUG: Initial render failed:', err);
-                        throw err;
-                    });
+                    // Render first page
+                    return renderPage(pageNum);
                 })
                 .then(() => {
                     if (canceled) return;
+                    
                     // Update URL after successful render
-                    updateURL(pdfPath, pageNum);
+                    updateURLWithPDF(pdfPath, pageNum, folder);
                 })
                 .catch(function(error) {
                     if (canceled) return;
                     clearTimeout(timeoutId);
                     
-                    console.error('DEBUG: Error loading PDF:', error);
+                    console.error('Error loading PDF:', error);
                     showError();
                 });
-                
-            return loadingTask;
         }
         
-        // Render PDF page with better error handling
+        // Helper function to update URL with current PDF and page
+        function updateURLWithPDF(pdfPath, page, folder) {
+            // Extract just the filename part
+            let pdfFilename = pdfPath.split('/').pop();
+            
+            // Create the full path for the URL
+            const folderName = folder || 'Senate_Digitization';
+            const urlPath = `${folderName}/${pdfFilename}`;
+            
+            // Update the URL
+            console.log('Updating URL with:', urlPath, 'Page:', page);
+            history.pushState(null, '', `?folder=${folderName}#pdf=${urlPath}&page=${page}`);
+        }
+        
+        // Update URL with just the page number
+        function updateURLWithPage(page) {
+            const hash = window.location.hash;
+            if (hash.startsWith('#pdf=')) {
+                const parts = hash.split('&');
+                const pdfPart = parts[0]; // #pdf=path/to/file.pdf
+                
+                // Construct new hash with updated page
+                const newHash = `${pdfPart}&page=${page}`;
+                
+                // Update URL without reloading
+                history.pushState(null, '', window.location.pathname + window.location.search + newHash);
+            }
+        }
+        
+        // Render PDF page
         function renderPage(num) {
             if (!pdfDoc) {
-                console.error('DEBUG: No PDF document available to render');
+                console.error('No PDF document available to render');
                 return Promise.reject(new Error('No PDF document'));
             }
             
@@ -562,7 +593,7 @@
             
             // Show loading indicator
             loadingIndicator.classList.remove('hidden');
-            console.log('DEBUG: Starting to render page', num);
+            console.log('Rendering page', num);
             
             // Get page
             return pdfDoc.getPage(num).then(function(page) {
@@ -575,17 +606,13 @@
                 // Render PDF page
                 const renderContext = {
                     canvasContext: ctx,
-                    viewport: viewport,
-                    enableWebGL: true,
-                    renderInteractiveForms: false
+                    viewport: viewport
                 };
                 
-                console.log('DEBUG: Beginning page render');
                 const renderTask = page.render(renderContext);
                 
                 // Wait for rendering to finish
                 return renderTask.promise.then(function() {
-                    console.log('DEBUG: Page rendered successfully');
                     pageRendering = false;
                     loadingIndicator.classList.add('hidden');
                     
@@ -599,16 +626,16 @@
                         pageNumPending = null;
                     }
                 }).catch(function(error) {
-                    console.error('DEBUG: Error rendering page:', error);
+                    console.error('Error rendering page:', error);
                     pageRendering = false;
                     loadingIndicator.classList.add('hidden');
-                    throw error; // Propagate error up
+                    throw error;
                 });
             }).catch(function(error) {
-                console.error('DEBUG: Error getting page:', error);
+                console.error('Error getting page:', error);
                 pageRendering = false;
                 loadingIndicator.classList.add('hidden');
-                throw error; // Propagate error up
+                throw error;
             });
         }
         
@@ -625,8 +652,11 @@
             pdfViewer.classList.add('hidden');
             pdfError.classList.add('hidden');
             pdfSelection.classList.remove('hidden');
-            // Clear hash to remove deep linking
-            history.pushState({folder: currentFolderName.textContent.replace(/ /g, '_')}, '', `?folder=${currentFolderName.textContent.replace(/ /g, '_')}`);
+            
+            // Update URL to remove PDF info but keep folder
+            const urlParams = new URLSearchParams(window.location.search);
+            const folder = urlParams.get('folder') || 'Senate_Digitization';
+            history.pushState({}, '', `?folder=${folder}`);
         }
         
         // Update UI state based on current page
@@ -656,6 +686,9 @@
             pageNum--;
             queueRenderPage(pageNum);
             updateUIState();
+            
+            // Update URL with new page number
+            updateURLWithPage(pageNum);
         }
         
         // Go to next page
@@ -664,6 +697,9 @@
             pageNum++;
             queueRenderPage(pageNum);
             updateUIState();
+            
+            // Update URL with new page number
+            updateURLWithPage(pageNum);
         }
         
         // Go to specific page
@@ -682,6 +718,9 @@
             
             queueRenderPage(pageNum);
             updateUIState();
+            
+            // Update URL with new page number
+            updateURLWithPage(pageNum);
         }
         
         // Zoom in
@@ -723,6 +762,16 @@
         // Event listeners
         backToListButton.addEventListener('click', backToList);
         errorBackButton.addEventListener('click', backToList);
+        
+        // Listen for browser navigation (back/forward buttons)
+        window.addEventListener('popstate', function(event) {
+            processURLParams();
+        });
+        
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            processURLParams();
+        });
     </script>
 </body>
 </html>
