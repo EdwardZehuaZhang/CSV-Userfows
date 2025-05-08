@@ -5,6 +5,42 @@ body {
     transition: background-color 0.3s, color 0.3s;
 }
 
+/* Fix for consistent header height */
+header {
+    height: 72px; /* Fixed height for the header */
+}
+
+header .flex.justify-between {
+    height: 100%;
+}
+
+#theme-toggle {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#theme-toggle i {
+    position: absolute;
+}
+
+/* Hide number input spinners */
+/* Chrome, Safari, Edge, Opera */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+}
+
+/* Firefox */
+input[type=number] {
+    -moz-appearance: textfield;
+    text-align: left; /* Change text alignment from center to left */
+    padding-left: 6px; /* Add padding to the left for better appearance */
+}
+
 .pdf-container {
     position: relative;
     width: 100%;
@@ -17,6 +53,37 @@ body {
     width: 100% !important;
     height: auto !important;
     object-fit: contain;
+}
+
+/* PDF scroll view styles */
+#pdf-scroll-container {
+    padding: 20px;
+    width: 100%;
+}
+
+.pdf-page-container {
+    position: relative;
+    margin-bottom: 8px; /* Reduced from 20px to 8px for closer pages */
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    background-color: white;
+    padding: 10px;
+    border-radius: 5px;
+}
+
+.dark .pdf-page-container {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+.pdf-page-canvas {
+    width: 100% !important;
+    height: auto !important;
+    display: block;
+}
+
+/* Hide pagination controls when disabled */
+.disabled {
+    opacity: 0.5;
+    pointer-events: none;
 }
 
 /* Custom loading spinner */

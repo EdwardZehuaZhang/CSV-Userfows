@@ -147,24 +147,23 @@
                     <button id="back-to-list" class="btn-hover bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 p-2 rounded-md focus:outline-none mr-4">
                         <i class="fa-solid fa-arrow-left mr-1"></i> Back
                     </button>
-                    <span class="text-sm">
-                        Page <span id="current-page">0</span> of <span id="total-pages">0</span>
+                    <span class="text-sm flex items-center">
+                        Page 
+                        <input type="number" id="page-input" min="1" value="1" 
+                               class="w-12 mx-2 p-1 text-center border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700">
+                        of <span id="total-pages" class="ml-1">0</span>
                     </span>
                 </div>
                 
                 <div class="flex items-center space-x-2">
-                    <div class="flex items-center">
-                        <input type="number" id="page-input" min="1" value="1" 
-                               class="w-16 p-2 text-center border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700">
-                        <button id="go-to-page" class="btn-hover ml-2 bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 rounded-md">
-                            Go
-                        </button>
-                    </div>
                     <button id="zoom-out" class="btn-hover bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 p-2 rounded-md focus:outline-none">
                         <i class="fa-solid fa-search-minus"></i>
                     </button>
                     <button id="zoom-in" class="btn-hover bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 p-2 rounded-md focus:outline-none">
                         <i class="fa-solid fa-search-plus"></i>
+                    </button>
+                    <button id="view-mode-toggle" class="btn-hover ml-2 bg-primary-600 hover:bg-primary-700 text-white px-3 py-2 rounded-md">
+                        <i class="fa-solid fa-scroll mr-1"></i> Scroll View
                     </button>
                 </div>
             </div>
@@ -184,6 +183,7 @@
                         <div class="loader"></div>
                     </div>
                     <canvas id="pdf-canvas" class="shadow-lg max-w-full"></canvas>
+                    <div id="pdf-scroll-container" class="hidden w-full flex flex-col items-center gap-2 py-4"></div>
                 </div>
             </div>
         </div>
