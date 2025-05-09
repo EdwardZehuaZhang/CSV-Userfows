@@ -8,6 +8,7 @@ function loadPDF(pdfPath, targetPage = 1) {
     const pdfScrollContainer = document.getElementById('pdf-scroll-container');
     const prevPageButton = document.getElementById('prev-page');
     const nextPageButton = document.getElementById('next-page');
+    const viewModeToggle = document.getElementById('view-mode-toggle');
     const ctx = pdfCanvas.getContext('2d');
     
     // Store the current PDF path
@@ -46,10 +47,14 @@ function loadPDF(pdfPath, targetPage = 1) {
         // Show scroll container, hide page view container
         pdfCanvas.classList.add('hidden');
         pdfScrollContainer.classList.remove('hidden');
+        // Set button text to show the alternative view option
+        viewModeToggle.innerHTML = '<i class="fa-solid fa-file mr-1"></i> Page View';
     } else {
         // Show page view container, hide scroll container
         pdfCanvas.classList.remove('hidden');
         pdfScrollContainer.classList.add('hidden');
+        // Set button text to show the alternative view option
+        viewModeToggle.innerHTML = '<i class="fa-solid fa-scroll mr-1"></i> Scroll View';
     }
     
     // Use the UI components module to update pagination control state

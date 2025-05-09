@@ -82,36 +82,90 @@ input[type=number] {
     transition: all 0.3s ease;
 }
 
-.pdf-container canvas {
-    max-width: 100% !important;
-    width: 100% !important;
-    height: auto !important;
-    object-fit: contain;
-}
-
 /* PDF scroll view styles */
 #pdf-scroll-container {
-    padding: 20px;
+    padding: 0; /* Remove padding to use full panel width */
     width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* Center pages horizontally */
 }
 
+/* Default state for PDF page containers (before loading) */
 .pdf-page-container {
     position: relative;
-    margin-bottom: 8px; /* Reduced from 20px to 8px for closer pages */
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-    background-color: white;
-    padding: 10px;
+    margin-bottom: 12px;
+    box-shadow: none;
+    background-color: transparent;
+    padding: 0;
     border-radius: 5px;
+    border: none;
+    transition: all 0.3s ease;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    overflow: hidden;
 }
 
 .dark .pdf-page-container {
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+    box-shadow: none;
+    background-color: transparent;
+    border: none;
+}
+
+/* Style for rendered pages - remove borders and padding */
+.pdf-page-container[data-rendered="true"] {
+    padding: 0;
+    border: none;
+    box-shadow: none;
+    background-color: transparent;
+    animation: fadeInPage 0.3s ease-out forwards;
+    margin-bottom: 8px;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+}
+
+/* Add a small gap between pages */
+.pdf-page-container[data-rendered="true"] + .pdf-page-container[data-rendered="true"] {
+    margin-top: 8px; /* Small gap between pages */
 }
 
 .pdf-page-canvas {
-    width: 100% !important;
-    height: auto !important;
     display: block;
+    max-width: 100% !important;
+    height: auto !important;
+    margin: 0; /* Remove margin */
+}
+
+/* Page number indicator - only visible before rendering */
+.pdf-page-container .page-number,
+.pdf-page-container[data-rendered="true"] .page-number {
+    opacity: 0;
+    display: none; /* Completely hide the element */
+    transition: opacity 0.3s ease;
+}
+
+/* Remove hover effect that shows page numbers */
+.pdf-page-container:hover .page-number {
+    opacity: 0;
+    display: none; /* Completely hide the element */
+}
+
+/* Extra specific rule to ensure page numbers are hidden on pages with data-hide-page-number attribute */
+.pdf-page-container[data-hide-page-number="true"] .page-number,
+.pdf-page-container[data-hide-page-number="true"]::before,
+.pdf-page-container[data-hide-page-number="true"]::after {
+    opacity: 0 !important;
+    display: none !important;
+    content: none !important;
+    visibility: hidden !important;
+}
+
+/* Fade-in animation for newly loaded pages */
+@keyframes fadeInPage {
+    from { opacity: 0.5; }
+    to { opacity: 1; }
 }
 
 /* Hide pagination controls when disabled */
@@ -138,6 +192,30 @@ input[type=number] {
 @keyframes spin {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
+}
+
+/* Page loading indicator styles */
+.page-loading-indicator {
+    transition: opacity 0.3s ease;
+    z-index: 10;
+    border-radius: 5px;
+    background-color: rgba(255, 255, 255, 0.8);
+}
+
+.dark .page-loading-indicator {
+    background-color: rgba(31, 41, 55, 0.8);
+}
+
+.page-loading-indicator.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Smaller loader for individual pages */
+.page-loading-indicator .loader {
+    width: 30px;
+    height: 30px;
+    border-width: 2px;
 }
 
 /* Fade-in animation */
