@@ -7,6 +7,8 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Add SimpleBar CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simplebar@latest/dist/simplebar.css" />
     <link rel="stylesheet" href="./css/styles.css">
     <script>
         // Configure PDF.js worker
@@ -36,7 +38,7 @@
         };
     </script>
 </head>
-<body class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 flex flex-col">
+<body class="min-h-screen bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 flex flex-col" data-simplebar data-simplebar-auto-hide="false">
     <header class="sticky top-0 z-50 bg-white dark:bg-gray-800 shadow-md">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center py-4">
@@ -92,7 +94,7 @@
         </div>
 
         <!-- PDF selection cards -->
-        <div id="pdf-selection" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+        <div id="pdf-selection" class="hidden">
             <div id="back-to-folders" class="card-hover bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 col-span-full mb-4">
                 <button class="btn-hover flex items-center justify-center w-auto bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-md transition-all" 
                         onclick="backToFolders()">
@@ -101,36 +103,7 @@
                 <h2 id="current-folder-name" class="text-2xl font-bold mt-4">Folder Name</h2>
             </div>
             
-            <!-- Senate Digitization PDF container - using grid layout -->
-            <div id="senate-pdf-container" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 col-span-full">
-                <div class="card-hover bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 flex flex-col h-full">
-                    <h3 class="text-xl font-semibold mb-3">Document Upload-Iteration-Publish</h3>
-                    <p class="text-gray-600 dark:text-gray-300 mb-4 flex-grow">User flow for document upload process</p>
-                    <button class="btn-hover flex items-center justify-center w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md transition-all mt-auto" 
-                            onclick="loadPDF('./Senate_Digitization/Document Upload-Iteration-Publish User Flow.pdf')">
-                        <i class="fa-solid fa-file-pdf mr-2"></i> View PDF
-                    </button>
-                </div>
-                
-                <div class="card-hover bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 flex flex-col h-full">
-                    <h3 class="text-xl font-semibold mb-3">View Live-Historical Sentiment Analysis</h3>
-                    <p class="text-gray-600 dark:text-gray-300 mb-4 flex-grow">User flow for sentiment analysis features</p>
-                    <button class="btn-hover flex items-center justify-center w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md transition-all mt-auto" 
-                            onclick="loadPDF('./Senate_Digitization/View Live-Historical Sentiment Analysis User Flow.pdf')">
-                        <i class="fa-solid fa-file-pdf mr-2"></i> View PDF
-                    </button>
-                </div>
-                
-                <div class="card-hover bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 flex flex-col h-full">
-                    <h3 class="text-xl font-semibold mb-3">What A Journalist Following Impeachment Might See</h3>
-                    <p class="text-gray-600 dark:text-gray-300 mb-4 flex-grow">User flow for journalist experience during impeachment</p>
-                    <button class="btn-hover flex items-center justify-center w-full bg-primary-600 hover:bg-primary-700 text-white font-medium py-2 px-4 rounded-md transition-all mt-auto" 
-                            onclick="loadPDF('./Senate_Digitization/What A Journalist Following Imprechement Might See User flow.pdf')">
-                        <i class="fa-solid fa-file-pdf mr-2"></i> View PDF
-                    </button>
-                </div>
-            </div>
-            
+            <!-- Empty folder message -->
             <div id="empty-folder-message" class="hidden col-span-full">
                 <div class="bg-white dark:bg-gray-800 rounded-lg shadow-md p-8 text-center">
                     <i class="fa-solid fa-folder-open text-gray-400 text-5xl mb-4"></i>
@@ -138,12 +111,14 @@
                     <p class="text-gray-600 dark:text-gray-300 mb-4">This folder doesn't contain any PDF files yet.</p>
                 </div>
             </div>
+            
+            <!-- PDF containers will be dynamically inserted here by the folder scanner -->
         </div>
 
         <!-- PDF viewer -->
         <div id="pdf-viewer" class="hidden bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-            <div class="bg-gray-100 dark:bg-gray-700 px-4 py-3 flex flex-wrap justify-between items-center">
-                <div class="flex items-center space-x-2 mb-2 sm:mb-0">
+            <div class="bg-gray-100 dark:bg-gray-700 px-4 py-3 flex justify-between items-center">
+                <div class="flex items-center space-x-2">
                     <button id="back-to-list" class="btn-hover bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 p-2 rounded-md focus:outline-none mr-4">
                         <i class="fa-solid fa-arrow-left mr-1"></i> Back
                     </button>
@@ -155,7 +130,7 @@
                     </span>
                 </div>
                 
-                <div class="flex items-center space-x-2">
+                <div class="flex items-center space-x-2 ml-auto">
                     <button id="zoom-out" class="btn-hover bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 p-2 rounded-md focus:outline-none">
                         <i class="fa-solid fa-search-minus"></i>
                     </button>
@@ -178,12 +153,12 @@
                     <i class="fa-solid fa-chevron-right text-2xl"></i>
                 </button>
                 
-                <div class="pdf-container relative overflow-auto bg-gray-300 dark:bg-gray-600 flex justify-center items-start" style="min-height: calc(85vh - 4rem); height: calc(100vh - 200px - 4rem); max-width: 100%;">
+                <div class="pdf-container relative bg-gray-300 dark:bg-gray-600 flex justify-center items-start hide-scrollbar" data-simplebar data-simplebar-auto-hide="false" style="min-height: calc(85vh - 4rem); height: calc(100vh - 200px - 4rem); max-width: 100%;">
                     <div id="loading" class="absolute inset-0 flex items-center justify-center bg-white dark:bg-gray-800 bg-opacity-80 dark:bg-opacity-80 z-20 hidden">
                         <div class="loader"></div>
                     </div>
                     <canvas id="pdf-canvas" class="shadow-lg max-w-full"></canvas>
-                    <div id="pdf-scroll-container" class="hidden w-full flex flex-col items-center gap-2 py-4"></div>
+                    <div id="pdf-scroll-container" class="hidden w-full flex flex-col items-center gap-2 py-4 hide-scrollbar" data-simplebar data-simplebar-auto-hide="false"></div>
                 </div>
             </div>
         </div>
@@ -229,7 +204,34 @@
 
     <!-- Include separated JavaScript modules -->
     <script src="./js/theme.js"></script>
-    <script src="./js/pdf-viewer.js"></script>
+    <script src="./js/pdf-shared.js"></script>
+    <script src="./js/pdf-render.js"></script>
+    <script src="./js/pdf-loader.js"></script>
+    <script src="./js/pdf-view-modes.js"></script>
+    <script src="./js/pdf-navigation.js"></script>
+    <script src="./js/pdf-ui-components.js"></script>
+    <script src="./js/folder-scanner.js"></script>
     <script src="./js/navigation.js"></script>
+    <script src="./js/pdf-viewer.js"></script>
+    
+    <!-- Add SimpleBar JS -->
+    <script src="https://cdn.jsdelivr.net/npm/simplebar@latest/dist/simplebar.min.js"></script>
+    <!-- Initialize SimpleBar -->
+    <script>
+        // Initialize SimpleBar on load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Apply SimpleBar to PDF container
+            const pdfContainers = document.querySelectorAll('.pdf-container');
+            pdfContainers.forEach(container => {
+                new SimpleBar(container);
+            });
+            
+            // Apply SimpleBar to scroll container
+            const scrollContainer = document.getElementById('pdf-scroll-container');
+            if (scrollContainer) {
+                new SimpleBar(scrollContainer);
+            }
+        });
+    </script>
 </body>
 </html>

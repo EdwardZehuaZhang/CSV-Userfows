@@ -1,8 +1,28 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
 
+/* Apply SimpleBar overlay style to the entire body/html */
+html, body {
+    scrollbar-width: none; /* For Firefox */
+    -ms-overflow-style: none; /* For Internet Explorer and Edge */
+    height: 100%; /* Ensure full height */
+}
+
+html::-webkit-scrollbar, 
+body::-webkit-scrollbar {
+    display: none; /* For Chrome, Safari, and Opera */
+}
+
+/* Apply the same SimpleBar styling to the entire document */
+html {
+    overflow-y: overlay; /* Makes scrollbar overlay content */
+}
+
 body {
     font-family: 'Inter', sans-serif;
     transition: background-color 0.3s, color 0.3s;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh; /* Minimum height to ensure full viewport height */
 }
 
 /* Fix for consistent header height */
@@ -12,6 +32,20 @@ header {
 
 header .flex.justify-between {
     height: 100%;
+}
+
+/* Main content area */
+main {
+    flex: 1 0 auto; /* Allow main to grow and take available space */
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+/* Footer styles */
+footer {
+    flex-shrink: 0; /* Prevent footer from shrinking */
+    width: 100%; /* Ensure full width */
 }
 
 #theme-toggle {
@@ -160,4 +194,46 @@ input[type=number] {
 
 .nav-btn-tall:hover {
     opacity: 1;
+}
+
+/* SimpleBar custom styling */
+.simplebar-scrollbar::before {
+    background-color: rgba(156, 163, 175, 0.5);
+    border-radius: 4px;
+    width: 6px;
+    opacity: 0;
+    transition: opacity 0.2s ease-out;
+}
+
+.simplebar-scrollbar.simplebar-visible:before {
+    opacity: 0.5;
+}
+
+.simplebar-track.simplebar-vertical {
+    width: 8px;
+    background: transparent;
+}
+
+.simplebar-track.simplebar-horizontal {
+    height: 8px;
+    background: transparent;
+}
+
+.simplebar-mask {
+    z-index: auto;
+}
+
+/* Hide scrollbar but maintain functionality */
+.hide-scrollbar {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+}
+
+/* Special handling for PDF viewer page */
+#pdf-viewer.active-viewer {
+    min-height: calc(100vh - 72px - 80px); /* Subtract header height and some padding */
 }

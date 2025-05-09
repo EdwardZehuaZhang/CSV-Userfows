@@ -9,8 +9,8 @@ function processURLParams() {
     console.log('Processing URL params:', { folder: folderParam, hash });
     
     if (folderParam) {
-        // Show the folder
-        showFolder(folderParam, false); // Don't update URL, we're already there
+        // Show the folder with dynamically scanned PDFs
+        showFolderWithPDFs(folderParam, false); // Don't update URL, we're already there
         
         // Check for PDF in hash
         if (hash && hash.startsWith('#pdf=')) {
@@ -45,36 +45,10 @@ function processURLParams() {
     }
 }
 
-// Folder navigation
+// Folder navigation - delegate to the folder scanner module
 function showFolder(folderName, updateURL = true) {
-    const folderSelection = document.getElementById('folder-selection');
-    const pdfSelection = document.getElementById('pdf-selection');
-    const senatePdfContainer = document.getElementById('senate-pdf-container');
-    const emptyFolderMessage = document.getElementById('empty-folder-message');
-    const currentFolderName = document.getElementById('current-folder-name');
-    
-    // Hide folder selection, show PDF selection
-    folderSelection.classList.add('hidden');
-    pdfSelection.classList.remove('hidden');
-    
-    // Set current folder name with proper formatting
-    const formattedName = folderName.replace(/_/g, ' ');
-    currentFolderName.textContent = formattedName;
-    
-    // Show appropriate content based on folder
-    if (folderName === 'Senate_Digitization') {
-        senatePdfContainer.classList.remove('hidden');
-        emptyFolderMessage.classList.add('hidden');
-    } else {
-        // For other folders that don't have PDFs yet
-        senatePdfContainer.classList.add('hidden');
-        emptyFolderMessage.classList.remove('hidden');
-    }
-    
-    // Update URL with folder if needed
-    if (updateURL) {
-        history.pushState({}, '', `?folder=${folderName}`);
-    }
+    // Use the dynamic folder scanner to show folder contents
+    showFolderWithPDFs(folderName, updateURL);
 }
 
 // Back to folders
@@ -86,6 +60,8 @@ function backToFolders() {
     
     pdfSelection.classList.add('hidden');
     pdfViewer.classList.add('hidden');
+    // Remove the active-viewer class when returning to folders
+    pdfViewer.classList.remove('active-viewer');
     pdfError.classList.add('hidden');
     folderSelection.classList.remove('hidden');
     
@@ -100,6 +76,8 @@ function backToList() {
     const pdfSelection = document.getElementById('pdf-selection');
     
     pdfViewer.classList.add('hidden');
+    // Remove the active-viewer class when returning to folder selection
+    pdfViewer.classList.remove('active-viewer');
     pdfError.classList.add('hidden');
     pdfSelection.classList.remove('hidden');
     
