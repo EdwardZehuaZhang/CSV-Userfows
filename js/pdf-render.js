@@ -22,11 +22,10 @@ function renderPage(num) {
     
     // Get page
     return pdfDoc.getPage(num).then(function(page) {
-        // Get the original viewport then create a new one with correct rotation
-        const originalViewport = page.getViewport({ scale: 1.0 });
+        // Use the page's inherent rotation metadata
         const viewport = page.getViewport({ 
             scale: scale,
-            rotation: 0  // Always set rotation to 0 to prevent upside-down pages
+            rotation: page.rotate  // Use the page's own rotation value
         });
         const pdfCanvas = document.getElementById('pdf-canvas');
         const ctx = pdfCanvas.getContext('2d');
@@ -173,10 +172,10 @@ function renderPageInScrollView(pageNumber) {
     
     // Get and render the page
     return pdfDoc.getPage(pageNumber).then(function(page) {
-        // Always use rotation: 0 to prevent upside-down rendering
+        // Use the page's inherent rotation metadata
         const viewport = page.getViewport({ 
             scale: scale, 
-            rotation: 0  // Explicitly force rotation to 0
+            rotation: page.rotate  // Use the page's own rotation value
         });
         
         const ctx = pageCanvas.getContext('2d');

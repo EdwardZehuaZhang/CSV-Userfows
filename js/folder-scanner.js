@@ -3,52 +3,88 @@
 
 /**
  * Fetches the list of PDF files in a directory using AJAX
- * @param {string} folderName - The name of the folder to scan
+ * @param {string} folderPath - The path of the folder to scan
  * @returns {Promise} - Resolves with the list of PDF files or rejects with an error
  */
-function scanFolderForPDFs(folderName) {
+function scanFolderForPDFs(folderPath) {
     return new Promise((resolve, reject) => {
-        console.log(`Scanning folder: ${folderName} for PDFs`);
-        
-        // Create a new XMLHttpRequest to fetch directory listing
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', `./${folderName}/`, true);
-        
-        xhr.onload = function() {
-            if (xhr.status >= 200 && xhr.status < 300) {
-                // Create a temporary element to parse the HTML response
-                const tempEl = document.createElement('div');
-                tempEl.innerHTML = xhr.responseText;
-                
-                // Find all links in the directory listing
-                const links = tempEl.querySelectorAll('a');
-                const pdfFiles = [];
-                
-                // Filter for PDF files
-                links.forEach(link => {
-                    const href = link.getAttribute('href');
-                    if (href && href.toLowerCase().endsWith('.pdf')) {
-                        pdfFiles.push({
-                            name: decodeURIComponent(href),
-                            path: `./${folderName}/${href}`
-                        });
+        const IS_GITHUB_PAGES = window.location.hostname.endsWith('github.io');
+
+        if (IS_GITHUB_PAGES) {
+            // GitHub Pages: Fetch manifest.json
+            const manifestUrl = `${folderPath}/manifest.json`;
+            console.log(`GitHub Pages mode: Attempting to fetch manifest: ${manifestUrl}`);
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', manifestUrl, true);
+            xhr.onload = function () {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    try {
+                        const fileNames = JSON.parse(xhr.responseText);
+                        if (!Array.isArray(fileNames)) {
+                            console.error(`Manifest content for ${folderPath} is not an array.`);
+                            throw new Error('Manifest content is not an array.');
+                        }
+                        const pdfFiles = fileNames
+                            .filter(fileName => typeof fileName === 'string' && fileName.toLowerCase().endsWith('.pdf'))
+                            .map(fileName => ({
+                                name: decodeURIComponent(fileName), // Decode file names
+                                path: `${folderPath}/${fileName}`   // Path uses original (potentially encoded) name
+                            }));
+                        console.log(`Successfully loaded PDFs from manifest for ${folderPath}:`, pdfFiles);
+                        resolve(pdfFiles);
+                    } catch (e) {
+                        console.error(`Error parsing manifest for ${folderPath}:`, e);
+                        reject(new Error(`Error parsing manifest for ${folderPath}: ${e.message}`));
                     }
-                });
-                
-                console.log(`Found ${pdfFiles.length} PDFs in ${folderName}`);
-                resolve(pdfFiles);
-            } else {
-                console.error(`Failed to scan folder: ${folderName}`, xhr.statusText);
-                reject(new Error(`Failed to scan folder: ${xhr.status} ${xhr.statusText}`));
-            }
-        };
-        
-        xhr.onerror = function() {
-            console.error(`Error scanning folder: ${folderName}`);
-            reject(new Error('Network error while scanning folder'));
-        };
-        
-        xhr.send();
+                } else {
+                    console.error(`Failed to load manifest.json for ${folderPath} (Status: ${xhr.status}). This is required on GitHub Pages.`);
+                    reject(new Error(`Failed to load manifest.json for ${folderPath}: ${xhr.status}`));
+                }
+            };
+            xhr.onerror = function () {
+                console.error(`Network error while fetching manifest.json for ${folderPath}.`);
+                reject(new Error(`Network error fetching manifest.json for ${folderPath}`));
+            };
+            xhr.send();
+        } else {
+            // Local development: Scan directory listing (original behavior)
+            console.log(`Local mode: Attempting directory scan for: ${folderPath}/`);
+            const xhr = new XMLHttpRequest();
+            xhr.open('GET', folderPath + '/', true); 
+            xhr.onload = function () {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(xhr.responseText, 'text/html');
+                    const links = Array.from(doc.querySelectorAll('a'));
+                    const pdfFiles = links
+                        .map(link => {
+                            const href = link.getAttribute('href');
+                            if (!href || href === '../' || href.endsWith('/') || href.startsWith('?') || href.startsWith('#')) {
+                                return null;
+                            }
+                            const decodedName = decodeURIComponent(href.split('/').pop());
+                            if (decodedName.toLowerCase().endsWith('.pdf')) {
+                                return {
+                                    name: decodedName,
+                                    path: `${folderPath}/${href}`
+                                };
+                            }
+                            return null;
+                        })
+                        .filter(Boolean);
+                    console.log(`Successfully scanned directory for ${folderPath} (local):`, pdfFiles);
+                    resolve(pdfFiles);
+                } else {
+                    console.error(`Failed to scan folder (local): ${folderPath} (Status: ${xhr.status})`);
+                    reject(new Error(`Failed to scan folder (local): ${xhr.status}`));
+                }
+            };
+            xhr.onerror = function () {
+                console.error(`Network error during directory scan for ${folderPath} (local).`);
+                reject(new Error('Failed to scan folder (local): Network error'));
+            };
+            xhr.send();
+        }
     });
 }
 
@@ -58,22 +94,12 @@ function scanFolderForPDFs(folderName) {
  * @returns {string} - Formatted title
  */
 function formatPDFTitle(filename) {
-    // Extract just the filename without path
     const filenameParts = filename.split('/');
     let title = filenameParts[filenameParts.length - 1];
-    
-    // Remove extension
     title = title.replace('.pdf', '');
-    
-    // Replace hyphens and underscores with spaces
     title = title.replace(/[-_]/g, ' ');
-    
-    // Clean up any "User Flow" or "User flow" text
     title = title.replace(/\s*[Uu]ser\s*[Ff]low\s*$/, '');
-    
-    // Trim any extra spaces
     title = title.trim();
-    
     return title;
 }
 
@@ -93,44 +119,27 @@ function generatePDFDescription(filename) {
  * @param {Array} pdfFiles - Array of PDF file information
  */
 function buildPDFSelectionUI(folderName, pdfFiles) {
-    // Get the container for this folder's PDFs
     const containerId = `${folderName.toLowerCase()}-pdf-container`;
     let container = document.getElementById(containerId);
-    
-    // If container doesn't exist, create it
     if (!container) {
         container = document.createElement('div');
         container.id = containerId;
         container.className = 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 col-span-full hidden';
-        
-        // Add it to the PDF selection div
         const pdfSelection = document.getElementById('pdf-selection');
         if (pdfSelection) {
             pdfSelection.appendChild(container);
         }
     }
-    
-    // Clear existing content
     container.innerHTML = '';
-    
     if (pdfFiles.length === 0) {
-        // Show empty folder message
         document.getElementById('empty-folder-message').classList.remove('hidden');
         return;
     }
-    
-    // Hide empty folder message
     document.getElementById('empty-folder-message').classList.add('hidden');
-    
-    // Show this folder's container
     container.classList.remove('hidden');
-    
-    // Create a card for each PDF
     pdfFiles.forEach(pdf => {
         const title = formatPDFTitle(pdf.name);
         const description = generatePDFDescription(pdf.name);
-        
-        // Create card element
         const card = document.createElement('div');
         card.className = 'card-hover bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-all duration-300 flex flex-col h-full';
         card.innerHTML = `
@@ -141,7 +150,6 @@ function buildPDFSelectionUI(folderName, pdfFiles) {
                 <i class="fa-solid fa-file-pdf mr-2"></i> View PDF
             </button>
         `;
-        
         container.appendChild(card);
     });
 }
@@ -155,27 +163,16 @@ function showFolderWithPDFs(folderName, updateURL = true) {
     const folderSelection = document.getElementById('folder-selection');
     const pdfSelection = document.getElementById('pdf-selection');
     const currentFolderName = document.getElementById('current-folder-name');
-    
-    // Hide folder selection, show PDF selection
     folderSelection.classList.add('hidden');
     pdfSelection.classList.remove('hidden');
-    
-    // Set current folder name with proper formatting
     const formattedName = folderName.replace(/_/g, ' ');
     currentFolderName.textContent = formattedName;
-    
-    // Hide all PDF containers
     document.querySelectorAll('[id$="-pdf-container"]').forEach(container => {
         container.classList.add('hidden');
     });
-    
-    // Show loading state
     document.getElementById('loading').classList.remove('hidden');
-    
-    // Scan the folder for PDFs
     scanFolderForPDFs(folderName)
         .then(pdfFiles => {
-            // Build the UI with the PDF files
             buildPDFSelectionUI(folderName, pdfFiles);
             document.getElementById('loading').classList.add('hidden');
         })
@@ -184,8 +181,6 @@ function showFolderWithPDFs(folderName, updateURL = true) {
             document.getElementById('empty-folder-message').classList.remove('hidden');
             document.getElementById('loading').classList.add('hidden');
         });
-    
-    // Update URL with folder if needed
     if (updateURL) {
         history.pushState({}, '', `?folder=${folderName}`);
     }
