@@ -5,7 +5,8 @@ const path = require('path');
 
 // Add all folders that contain PDFs you want to scan
 const pdfFolders = [
-    'Senate_Digitization'
+    'Senate_Digitization',
+    'DENR'
     // Add other PDF folder names here, e.g., 'Another_PDF_Folder'
 ];
 
