@@ -48,7 +48,6 @@ function renderPage(num) {
             document.getElementById('loading').classList.add('hidden');
             
             // Update UI
-            document.getElementById('current-page').textContent = num;
             document.getElementById('page-input').value = num;
             
             // Handle pending page requests
@@ -128,28 +127,35 @@ function renderScrollView() {
     }, 300);
     
     // Set up intersection observer to load pages as they come into view
-    setupPageObserver();
-    
-    // Immediately start loading the first few pages
-    const initialPagesToLoad = Math.min(3, pdfDoc.numPages);
-    const initialLoadPromises = [];
-    
-    for (let i = 1; i <= initialPagesToLoad; i++) {
-        initialLoadPromises.push(renderPageInScrollView(i));
+    if (document.querySelector('#pdf-scroll-container .simplebar-content-wrapper')) {
+        setupPageObserver();
+    } else {
+        console.warn('SimpleBar wrapper for pdf-scroll-container not ready for IntersectionObserver setup. Pages might not lazy load correctly on scroll until it is.');
+        setTimeout(() => {
+            if (document.querySelector('#pdf-scroll-container .simplebar-content-wrapper')) {
+                setupPageObserver();
+            } else {
+                console.error('Failed to set up IntersectionObserver: SimpleBar wrapper still not found.');
+            }
+        }, 500);
     }
     
-    return Promise.all(initialLoadPromises)
+    // Sequentially render all pages
+    let loadPromise = Promise.resolve();
+    for (let i = 1; i <= pdfDoc.numPages; i++) {
+        loadPromise = loadPromise.then(() => renderPageInScrollView(i));
+    }
+    
+    return loadPromise
         .then(() => {
-            console.log(`Initial ${initialPagesToLoad} pages loaded in scroll view`);
-            // Ensure current page in view is updated in the input field if needed
+            console.log(`All ${pdfDoc.numPages} pages loaded in scroll view`);
             const firstVisiblePage = findFirstVisiblePage();
             if (firstVisiblePage) {
                 document.getElementById('page-input').value = firstVisiblePage;
-                document.getElementById('current-page').textContent = firstVisiblePage; // If you have a current-page span for scroll view
             }
         })
         .catch(error => {
-            console.error('Error rendering initial scroll view pages:', error);
+            console.error('Error rendering all scroll view pages:', error);
         });
 }
 
@@ -165,10 +171,12 @@ function renderPageInScrollView(pageNumber) {
         return Promise.reject(new Error(`Canvas or loading indicator not found for page ${pageNumber}`));
     }
     
-    // Pages that are already rendered shouldn't be rendered again
-    if (pageCanvas.dataset.rendered === 'true') {
+    // Pages that are already rendered or currently rendering shouldn't be processed again
+    if (pageCanvas.dataset.rendered === 'true' || pageCanvas.dataset.rendering === 'true') {
         return Promise.resolve();
     }
+    
+    pageCanvas.dataset.rendering = 'true'; // Mark as rendering
     
     // Get and render the page
     return pdfDoc.getPage(pageNumber).then(function(page) {
@@ -193,13 +201,14 @@ function renderPageInScrollView(pageNumber) {
         return page.render(renderContext).promise.then(() => {
             // Mark the page as rendered and hide loading indicator
             pageCanvas.dataset.rendered = 'true';
+            pageCanvas.dataset.rendering = 'false'; // Clear rendering flag
             pageContainer.dataset.rendered = 'true';  // Also mark container as rendered
             loadingIndicator.classList.add('hidden');
             console.log(`Page ${pageNumber} rendered in scroll view`);
         });
     }).catch(error => {
         console.error(`Error rendering page ${pageNumber} in scroll view:`, error);
-        // Show error state instead of loading
+        if (pageCanvas) pageCanvas.dataset.rendering = 'false'; // Clear rendering flag on error
         if (loadingIndicator) {
             loadingIndicator.innerHTML = `
                 <div class="flex flex-col items-center">
@@ -213,11 +222,16 @@ function renderPageInScrollView(pageNumber) {
 
 // Set up intersection observer to detect when pages come into view
 function setupPageObserver() {
-    // Disconnect any existing observer
     if (window.pageObserver) {
         window.pageObserver.disconnect();
     }
     
+    const scrollRoot = document.querySelector('#pdf-scroll-container .simplebar-content-wrapper');
+    if (!scrollRoot) {
+        console.error("Cannot setup PageObserver: scroll root '#pdf-scroll-container .simplebar-content-wrapper' not found.");
+        return;
+    }
+
     // Create new observer
     window.pageObserver = new IntersectionObserver((entries) => {
         let ScollViewPageNumUpdated = false; // Flag to update page number only once per intersection event batch
@@ -225,15 +239,15 @@ function setupPageObserver() {
             if (entry.isIntersecting) {
                 const pageNumber = parseInt(entry.target.dataset.pageNumber);
                 if (pageNumber) {
-                    renderPageInScrollView(pageNumber);
-                    // Update current page input only if it's the topmost visible page
-                    // and not already updated in this batch
+                    const canvas = document.getElementById(`scroll-page-canvas-${pageNumber}`);
+                    if (canvas && canvas.dataset.rendered !== 'true' && canvas.dataset.rendering !== 'true') {
+                        renderPageInScrollView(pageNumber);
+                    }
+                    
                     if (!ScollViewPageNumUpdated) {
                         const firstVisible = findFirstVisiblePage();
                         if (firstVisible) {
                              document.getElementById('page-input').value = firstVisible;
-                             // Also update the "Page X of Y" display if it's separate for scroll view
-                             document.getElementById('current-page').textContent = firstVisible;
                              ScollViewPageNumUpdated = true;
                         }
                     }
@@ -241,12 +255,11 @@ function setupPageObserver() {
             }
         });
     }, {
-        root: document.querySelector('[data-simplebar].pdf-container'), // Observe within the SimpleBar scrollable area
+        root: scrollRoot, // Observe within the SimpleBar scrollable area of pdf-scroll-container
         rootMargin: '200px 0px', // Start loading when page is within 200px of viewport
         threshold: 0.01 // A small part of the page is visible
     });
     
-    // Observe all page containers
     document.querySelectorAll('.pdf-page-container').forEach(pageContainer => {
         window.pageObserver.observe(pageContainer);
     });
@@ -254,16 +267,35 @@ function setupPageObserver() {
 
 // Helper function to find the first visible page in scroll view
 function findFirstVisiblePage() {
-    const scrollContainer = document.querySelector('[data-simplebar].pdf-container .simplebar-content-wrapper') || document.documentElement;
-    const scrollContainerTop = scrollContainer.scrollTop;
+    const scrollWrapper = document.querySelector('#pdf-scroll-container .simplebar-content-wrapper');
+    
+    if (!scrollWrapper) {
+        const fallbackScrollContainer = document.getElementById('pdf-scroll-container') || document.documentElement;
+        const scrollContainerTop = fallbackScrollContainer.scrollTop;
+        const pageContainers = document.querySelectorAll('#pdf-scroll-container .pdf-page-container');
+
+        for (let i = 0; i < pageContainers.length; i++) {
+            const container = pageContainers[i];
+            if (container.offsetParent !== null && (container.offsetTop + container.offsetHeight - scrollContainerTop > 50) && (container.offsetTop - scrollContainerTop < fallbackScrollContainer.clientHeight - 50)) {
+                if (container.offsetTop >= scrollContainerTop - 50) {
+                    return parseInt(container.dataset.pageNumber);
+                }
+            }
+        }
+        return null;
+    }
+
+    const scrollContainerTop = scrollWrapper.scrollTop;
+    const scrollContainerHeight = scrollWrapper.clientHeight;
     
     const pageContainers = document.querySelectorAll('#pdf-scroll-container .pdf-page-container');
     for (let i = 0; i < pageContainers.length; i++) {
         const container = pageContainers[i];
-        // Check if the container is rendered and visible
-        if (container.offsetParent !== null && (container.offsetTop + container.offsetHeight - scrollContainerTop > 50) && (container.offsetTop - scrollContainerTop < scrollContainer.clientHeight - 50) ) {
-             // A page is considered "first visible" if its top part is visible within a tolerance
-            if (container.offsetTop >= scrollContainerTop - 50) { // Allow some tolerance
+        const containerTopRelativeToScrollWrapper = container.offsetTop - scrollContainerTop;
+        const containerBottomRelativeToScrollWrapper = container.offsetTop + container.offsetHeight - scrollContainerTop;
+
+        if (containerTopRelativeToScrollWrapper < scrollContainerHeight && containerBottomRelativeToScrollWrapper > 0) {
+            if (containerTopRelativeToScrollWrapper <= 100) {
                 return parseInt(container.dataset.pageNumber);
             }
         }
