@@ -58,8 +58,12 @@ function scanFolderForPDFs(folderName) {
  * @returns {string} - Formatted title
  */
 function formatPDFTitle(filename) {
+    // Extract just the filename without path
+    const filenameParts = filename.split('/');
+    let title = filenameParts[filenameParts.length - 1];
+    
     // Remove extension
-    let title = filename.replace('.pdf', '');
+    title = title.replace('.pdf', '');
     
     // Replace hyphens and underscores with spaces
     title = title.replace(/[-_]/g, ' ');
