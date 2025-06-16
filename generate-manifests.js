@@ -7,8 +7,8 @@ const path = require('path');
 const pdfFolders = [
     'Senate_Digitization',
     'DENR',
-    'CSV_Registry'
-    // Add other PDF folder names here, e.g., 'Another_PDF_Folder'
+    'CSV_Registry',
+    'DTI'
 ];
 
 const projectRoot = __dirname; // Assumes the script is in the project root
